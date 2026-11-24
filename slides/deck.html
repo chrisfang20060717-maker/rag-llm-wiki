@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RAG 是什麼？讓 LLM 先查資料再回答｜教學簡報</title>
+<style>
+  :root {
+    --paper: #f6f3ec; --ink: #1d2330; --soft: #5d6472; --line: #d8d1c2;
+    --accent: #d2552d; --accent-2: #1f6f78; --hl: #fbe08a; --card: #ffffff;
+    --sans: "PingFang TC", "Noto Sans TC", "Noto Sans CJK TC", "Microsoft JhengHei", system-ui, sans-serif;
+    --serif: "Songti TC", "Noto Serif TC", "Noto Serif CJK TC", serif;
+    --mono: "SF Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: #2a2f3a; font-family: var(--sans); color: var(--ink); }
+  .stage { position: fixed; inset: 0; display: grid; place-items: center; }
+  .slide {
+    position: absolute; width: 1280px; height: 720px; background: var(--paper);
+    padding: 56px 72px 64px; display: none; flex-direction: column;
+    transform-origin: center center; overflow: hidden;
+  }
+  .slide.active { display: flex; }
+  .kicker { font-family: var(--mono); font-size: 15px; letter-spacing: .14em; color: var(--accent); text-transform: uppercase; margin-bottom: 8px; }
+  h1 { font-family: var(--serif); font-size: 64px; line-height: 1.2; margin: 0 0 20px; }
+  h2 { font-family: var(--serif); font-size: 44px; line-height: 1.25; margin: 0 0 24px; }
+  p, li { font-size: 29px; line-height: 1.6; }
+  ul { margin: 0; padding-left: 1.1em; }
+  li { margin-bottom: 10px; }
+  .content { flex: 1; min-height: 0; }
+  mark { background: linear-gradient(transparent 55%, var(--hl) 55%); color: inherit; }
+  .big { font-size: 30px; }
+  .muted { color: var(--soft); }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; align-items: start; }
+  .cols3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; align-items: start; }
+  .content.cols, .content.cols3 { flex: 0 0 auto; }
+  .card { min-height: 210px; }
+  .tokens { font-size: 29px; line-height: 2.4; }
+  .tokens .tag { font-size: 20px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 26px 28px; }
+  .card h3 { font-family: var(--serif); font-size: 32px; margin: 0 0 10px; }
+  .card p { font-size: 25px; margin: 0; line-height: 1.55; }
+  .card.hot { border: 2px solid var(--accent); }
+  .flow { display: flex; align-items: stretch; gap: 14px; margin: 8px 0 22px; }
+  .flow .step { flex: 1; background: var(--card); border: 2px solid var(--ink); border-radius: 14px; padding: 16px 18px; }
+  .flow .step b { display: block; font-family: var(--serif); font-size: 28px; margin-bottom: 6px; }
+  .flow .step span { font-size: 24px; color: var(--soft); line-height: 1.45; display: block; }
+  .flow .arrow { align-self: center; font-size: 34px; color: var(--accent); }
+  .bars { display: grid; gap: 12px; margin-top: 6px; }
+  .bar { display: grid; grid-template-columns: 300px 1fr 90px; align-items: center; gap: 14px; font-size: 22px; }
+  .bar .track { height: 30px; background: #e7e1d4; border-radius: 6px; overflow: hidden; }
+  .bar .fill { height: 100%; background: var(--accent-2); }
+  .bar .fill.base { background: #9aa1ad; }
+  .bar b { font-family: var(--mono); font-size: 22px; }
+  .w57 { width: 100%; } .w37 { width: 65%; } .w29 { width: 51%; } .w19 { width: 33%; }
+  .quote { font-family: var(--serif); font-size: 40px; line-height: 1.5; border-left: 6px solid var(--accent); padding-left: 24px; margin: 12px 0 24px; }
+  .tag { display: inline-block; font-family: var(--mono); font-size: 17px; border: 1.5px solid var(--accent-2); color: var(--accent-2); border-radius: 999px; padding: 2px 12px; margin-right: 6px; }
+  details { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 18px 24px; margin-bottom: 16px; font-size: 27px; }
+  summary { cursor: pointer; font-weight: 600; }
+  details p { font-size: 25px; margin: 8px 0 0; color: var(--accent-2); }
+  .src { position: absolute; left: 72px; right: 72px; bottom: 22px; font-size: 14px; color: var(--soft); border-top: 1px solid var(--line); padding-top: 8px; display: flex; justify-content: space-between; }
+  .src a { color: var(--soft); }
+  .cover { background: var(--ink); color: var(--paper); justify-content: center; }
+  .cover .kicker { color: var(--hl); }
+  .cover p { color: #c9ccd3; }
+  .cover .src { border-color: #3a4150; color: #9aa1ad; }
+  .cover .src a { color: #9aa1ad; }
+  svg text { font-family: var(--sans); }
+  .nav { position: fixed; bottom: 14px; right: 18px; display: flex; gap: 8px; z-index: 5; }
+  .nav button { background: rgba(255,255,255,.12); color: #fff; border: 0; border-radius: 8px; padding: 8px 14px; font-size: 16px; cursor: pointer; }
+  .progress { position: fixed; left: 0; top: 0; height: 4px; background: var(--accent); z-index: 5; transition: width .2s; }
+</style>
+</head>
+<body>
+<div class="progress" id="progress"></div>
+<div class="stage" id="stage">
+
+<section class="slide cover" data-sources="concepts/rag.md">
+  <div class="kicker">生成式 AI 課程 · 教學簡報</div>
+  <h1>RAG 是什麼？<br>讓 LLM 先查資料再回答</h1>
+  <p class="big">Retrieval-Augmented Generation，檢索增強生成——<br>把「閉書考試」變成「開書考試」。</p>
+</section>
+
+<section class="slide" data-sources="concepts/rag.md">
+  <div class="kicker">01 · 問題</div>
+  <h2>LLM 只靠「記憶」回答，會出什麼事？</h2>
+  <div class="content cols3">
+    <div class="card"><h3>知識難更新</h3><p>知識存在權重裡，世界變了就得重新訓練。</p></div>
+    <div class="card"><h3>無法追溯</h3><p>看不出答案是根據什麼來的，很難檢查。</p></div>
+    <div class="card hot"><h3>會幻覺</h3><p>不知道時也可能講得很有自信。</p></div>
+  </div>
+</section>
+
+<section class="slide" data-sources="concepts/rag.md,sources/lewis-2020-rag.md">
+  <div class="kicker">02 · 核心想法</div>
+  <h2>開書考試：參數記憶＋可查的資料庫</h2>
+  <div class="content cols">
+    <div>
+      <ul>
+        <li><b>參數記憶</b>：生成模型本身（原始論文用 BART）</li>
+        <li><b>非參數記憶</b>：可檢索的文件索引（Wikipedia 切成 <mark>21M</mark> 個段落）</li>
+        <li>中間用檢索器（DPR）去查</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>換索引＝換知識</h3>
+      <p>問 82 位換過職位的世界領袖：索引年份對得上時答對 <b>70%</b> / <b>68%</b>，對不上時只剩 <b>12%</b> / <b>4%</b>。</p>
+      <p class="muted" style="margin-top:10px">→ 不用重新訓練，換資料就能更新。</p>
+    </div>
+  </div>
+</section>
+
+<section class="slide" data-sources="concepts/rag-pipeline.md">
+  <div class="kicker">03 · 流程</div>
+  <h2>RAG 的三個步驟（Retrieve-Read）</h2>
+  <div class="content">
+    <div class="flow">
+      <div class="step"><b>① 建索引</b><span>離線做一次：清理文件 → 切段（chunk）→ 嵌入（embedding）→ 存進向量資料庫</span></div>
+      <div class="arrow">→</div>
+      <div class="step"><b>② 檢索</b><span>把問題也轉成向量，找出最相似的 top K 段</span></div>
+      <div class="arrow">→</div>
+      <div class="step"><b>③ 生成</b><span>問題＋段落組成 prompt，交給 LLM 回答</span></div>
+    </div>
+    <p class="muted">這個最基本的版本叫 <b>Naive RAG</b>。接下來會看到它的坑，以及怎麼補。</p>
+  </div>
+</section>
+
+<section class="slide" data-sources="concepts/hybrid-search.md">
+  <div class="kicker">04 · 怎麼「找」</div>
+  <h2>嵌入找意思，BM25 找字面</h2>
+  <div class="content cols">
+    <div class="card"><h3>向量嵌入</h3><p>擅長「意思相近」。但查「Error code TS-999」時，可能只找到一般錯誤碼說明。</p></div>
+    <div class="card"><h3>BM25</h3><p>字面比對，能精確找到寫著 TS-999 的那一段。</p></div>
+  </div>
+  <p style="margin-top:22px">實務上兩個一起用（<b>混合檢索</b>），再用 rank fusion 合併、去重。</p>
+</section>
+
+<section class="slide" data-sources="concepts/long-context.md">
+  <div class="kicker">05 · 坑一</div>
+  <h2>檢索越多段，答得越好嗎？</h2>
+  <div class="content cols">
+    <svg viewBox="0 0 520 300" width="520" height="300" aria-label="U 型曲線示意">
+      <line x1="50" y1="250" x2="500" y2="250" stroke="#1d2330" stroke-width="2"/>
+      <line x1="50" y1="250" x2="50" y2="30" stroke="#1d2330" stroke-width="2"/>
+      <path d="M70 60 C 180 230, 360 230, 480 80" fill="none" stroke="#d2552d" stroke-width="5"/>
+      <text x="58" y="282" font-size="18" fill="#5d6472">開頭</text>
+      <text x="250" y="282" font-size="18" fill="#5d6472">中間</text>
+      <text x="440" y="282" font-size="18" fill="#5d6472">結尾</text>
+      <text x="10" y="40" font-size="16" fill="#5d6472">正確率</text>
+      <text x="185" y="150" font-size="18" fill="#d2552d">答案在中間 → 最差</text>
+    </svg>
+    <ul>
+      <li>U 型曲線：答案在中間最容易被忽略</li>
+      <li>GPT-3.5-Turbo 不看文件 <b>56.1%</b>，答案藏中間時可能更差</li>
+      <li>從 20 段加到 50 段只多約 <b>1.5%</b></li>
+    </ul>
+  </div>
+</section>
+
+<section class="slide" data-sources="concepts/rag-pipeline.md,concepts/advanced-rag.md,sources/anthropic-2024-contextual-retrieval.md">
+  <div class="kicker">06 · 坑二</div>
+  <h2>Naive RAG 的三類問題</h2>
+  <div class="content cols3">
+    <div class="card"><h3>檢索不準</h3><p>抓錯段落，或漏掉真正相關的段落。</p></div>
+    <div class="card"><h3>生成仍幻覺</h3><p>有查到資料，答案還是可能沒照著寫。</p></div>
+    <div class="card"><h3>整合困難</h3><p>多段內容重複，抓不到哪段最重要。</p></div>
+  </div>
+  <p style="margin-top:22px">而且切塊會丟掉上下文：一段只寫「營收成長 3%」，卻沒寫是哪家公司、哪一季。</p>
+</section>
+
+<section class="slide" data-sources="concepts/advanced-rag.md,sources/anthropic-2024-contextual-retrieval.md">
+  <div class="kicker">07 · 解法一</div>
+  <h2>Advanced RAG：把「查」這件事做好</h2>
+  <div class="content cols">
+    <ul>
+      <li><b>檢索前</b>：改寫查詢、HyDE</li>
+      <li><b>檢索後</b>：rerank、壓縮上下文</li>
+      <li><b>Contextual Retrieval</b>：每段先加 50-100 tokens 說明再建索引</li>
+    </ul>
+    <div>
+      <p class="muted" style="font-size:19px;margin:0 0 8px">取前 20 段時的檢索失敗率</p>
+      <div class="bars">
+        <div class="bar"><span>一般做法</span><div class="track"><div class="fill base w57"></div></div><b>5.7%</b></div>
+        <div class="bar"><span>＋Contextual Embeddings</span><div class="track"><div class="fill w37"></div></div><b>3.7%</b></div>
+        <div class="bar"><span>＋Contextual BM25</span><div class="track"><div class="fill w29"></div></div><b>2.9%</b></div>
+        <div class="bar"><span>＋rerank</span><div class="track"><div class="fill w19"></div></div><b>1.9%</b></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="slide" data-sources="concepts/adaptive-retrieval.md">
+  <div class="kicker">08 · 解法二</div>
+  <h2>Self-RAG：需要時才查，查完自己檢查</h2>
+  <div class="content cols">
+    <div class="tokens">
+      <span class="tag">Retrieve</span> 要不要查？<br>
+      <span class="tag">IsREL</span> 資料相關嗎？<br>
+      <span class="tag">IsSUP</span> 答案有被支持嗎？<br>
+      <span class="tag">IsUSE</span> 答案有用嗎？
+    </div>
+    <div class="card">
+      <h3>效果</h3>
+      <p>PopQA：Self-RAG 13B <b>55.8</b>，ChatGPT <b>29.3</b>。</p>
+      <p class="muted" style="margin-top:10px">但不是每項都贏：ARC-Challenge 上 ChatGPT 的 75.3 仍較高。</p>
+    </div>
+  </div>
+</section>
+
+<section class="slide" data-sources="concepts/rag-evaluation.md">
+  <div class="kicker">09 · 評估</div>
+  <h2>怎麼知道 RAG 做得好？分開檢查</h2>
+  <div class="content cols3">
+    <div class="card"><h3>Context relevance</h3><p>查到的內容精準嗎？</p></div>
+    <div class="card hot"><h3>Faithfulness</h3><p>被支持的陳述數 ÷ 全部陳述數</p></div>
+    <div class="card"><h3>Answer relevance</h3><p>答案有回應問題嗎？</p></div>
+  </div>
+  <p style="margin-top:22px">RAGAS 不需要標準答案；和人類判斷一致率 <b>0.95</b> / <b>0.78</b> / <b>0.70</b>，context relevance 最難評。</p>
+</section>
+
+<section class="slide" data-sources="concepts/rag-vs-alternatives.md">
+  <div class="kicker">10 · 何時使用</div>
+  <h2>一定要用 RAG 嗎？</h2>
+  <div class="content cols3">
+    <div class="card"><h3>長 prompt</h3><p>知識庫小於 <b>200,000 tokens</b>（約 500 頁）：整份放進 prompt 就好。</p></div>
+    <div class="card hot"><h3>RAG</h3><p>要常更新知識、要能追溯來源。</p></div>
+    <div class="card"><h3>微調</h3><p>要改變風格、行為、術語。</p></div>
+  </div>
+  <p style="margin-top:22px">RAG 和微調不互斥，結合使用可能效果最好。</p>
+</section>
+
+<section class="slide" data-sources="concepts/long-context.md,concepts/hybrid-search.md,concepts/rag-evaluation.md">
+  <div class="kicker">11 · 小測驗</div>
+  <h2>點一下看答案</h2>
+  <div class="content">
+    <details><summary>Q1 檢索到 50 段一定比 20 段好？</summary><p>不一定。表現早就飽和，答案在中間還容易被忽略。</p></details>
+    <details><summary>Q2 要查精確的錯誤代碼，該加哪種檢索？</summary><p>BM25（字面比對），和嵌入一起做混合檢索。</p></details>
+    <details><summary>Q3 想知道答案有沒有亂講，看哪個指標？</summary><p>Faithfulness：答案的陳述有沒有被檢索內容支持。</p></details>
+  </div>
+</section>
+
+<section class="slide" data-sources="index.md">
+  <div class="kicker">12 · 回顧</div>
+  <h2>一張圖記住 RAG</h2>
+  <div class="content">
+    <div class="quote">問題 → 先查（找得準：混合檢索、rerank）<br>→ 再答（忠於資料）→ 用指標檢查</div>
+    <p class="muted">延伸閱讀：本簡報所有內容都來自 RAG LLM Wiki 的 6 篇來源，點頁尾連結可以看到每一頁引用的 wiki 頁。</p>
+  </div>
+</section>
+
+</div>
+<div class="nav"><button id="prev" aria-label="上一頁">←</button><button id="next" aria-label="下一頁">→</button></div>
+<script>
+(function () {
+  var REPO = "https://github.com/chrisfang20060717-maker/rag-llm-wiki/blob/main/wiki/";
+  var slides = Array.prototype.slice.call(document.querySelectorAll(".slide"));
+  slides.forEach(function (s, i) {
+    var f = document.createElement("div");
+    f.className = "src";
+    var links = (s.dataset.sources || "").split(",").map(function (p) {
+      p = p.trim();
+      return '<a href="' + REPO + p + '" target="_blank" rel="noopener">wiki/' + p + "</a>";
+    }).join("、");
+    f.innerHTML = "<span>來源：" + links + "</span><span>" + (i + 1) + " / " + slides.length + "</span>";
+    s.appendChild(f);
+  });
+  var cur = 0;
+  function fit() {
+    var k = Math.min(window.innerWidth / 1280, window.innerHeight / 720);
+    slides.forEach(function (s) { s.style.transform = "scale(" + k + ")"; });
+  }
+  function go(n) {
+    cur = Math.max(0, Math.min(slides.length - 1, n));
+    slides.forEach(function (s, i) { s.classList.toggle("active", i === cur); });
+    document.getElementById("progress").style.width = ((cur + 1) / slides.length * 100) + "%";
+    if (location.hash !== "#" + (cur + 1)) history.replaceState(null, "", "#" + (cur + 1));
+  }
+  window.goSlide = go;
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "ArrowRight" || e.key === " " || e.key === "PageDown") { go(cur + 1); e.preventDefault(); }
+    if (e.key === "ArrowLeft" || e.key === "PageUp") { go(cur - 1); e.preventDefault(); }
+  });
+  document.getElementById("prev").onclick = function () { go(cur - 1); };
+  document.getElementById("next").onclick = function () { go(cur + 1); };
+  window.addEventListener("resize", fit);
+  fit();
+  go((parseInt(location.hash.slice(1), 10) || 1) - 1);
+})();
+</script>
+</body>
+</html>
